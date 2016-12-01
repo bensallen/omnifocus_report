@@ -19,7 +19,7 @@ Original Script Posted At: http://veritrope.com/code/omnifocus-weekly-project-re
 tell application "OmniFocus"
 	
 	--SET THE REPORT TITLE
-	set ExportList to "Current Active Projects" & return & "---" & return as Unicode text
+	set ExportList to "Current Active Projects" & return & "---" & return & return as Unicode text
 	
 	--PROCESS THE PROJECTS
 	tell default document
@@ -30,42 +30,48 @@ tell application "OmniFocus"
 		end repeat
 		
 		--ASSEMBLE THE COMPLETED TASK LIST
-		set week_ago_start to my DateOfThisInstanceOfThisWeekdayBeforeOrAfterThisDate(current date, Monday, -1)
-		set week_ago_end to week_ago_start + 7 * days
-		set ExportList to ExportList & "Completed Tasks From Last Week - " & my dateISOformat(week_ago_start) & return & "---" & return & return & ""
 		
-		set refDoneInLastWorkWeek to a reference to (flattened tasks where (completion date ³ week_ago_start and completion date < week_ago_end))
-		set {lstName, lstContext, lstProject, lstDate} to {name, name of its context, containing project, completion date} of refDoneInLastWorkWeek
+		set week_ago_start to (my DateOfThisInstanceOfThisWeekdayBeforeOrAfterThisDate(current date, Monday, -1)) - 7 * days
+		set week_ago_end to week_ago_start + 7 * days
+		set ExportList to ExportList & "Completed Tasks From Last Week - " & my dateISOformat(week_ago_start,".") & return & "---" & return & return & ""
+		
 		set strText to ""
 		set oldFullPath to ""
-		repeat with iTask from 1 to length of lstName
-			set {strName, varContext, varProject, varDate} to {item iTask of lstName, item iTask of lstContext, item iTask of lstProject, item iTask of lstDate}
-			set pParent to container of varProject
-			set fullPath to name of varProject
-			repeat while class of pParent is folder
-				set fullPath to name of pParent & " / " & fullPath
-				set pParent to container of pParent
+		repeat with idFolder in (id of refFolders) as list
+			set oFolder to folder id idFolder
+			repeat with oProject in (flattened projects of oFolder)
+				set pParent to container of oProject
+				set fullPath to name of oProject
+				repeat while class of pParent is folder or class of pParent is project
+					set fullPath to name of pParent & " / " & fullPath
+					set pParent to container of pParent
+				end repeat
+				
+				set refDoneInLastWorkWeek to (a reference to (flattened tasks of oProject where (completion date ³ week_ago_start and completion date < week_ago_end)))
+				set {lstName, lstContext, lstProject, lstDate} to {name, name of its context, containing project, completion date} of refDoneInLastWorkWeek
+				set blahTasks to missing value
+				set blahTasks to my CompletedTasks(lstName, lstContext, lstProject, lstDate)
+				if blahTasks is not "" and oldFullPath is not fullPath then
+					set strText to strText & "### " & fullPath & return
+					set strText to strText & blahTasks
+					set oldFullPath to fullPath
+					
+				end if
+				
 			end repeat
-			(*if oldFullPath is not fullPath then set strText to strText & "### " & fullPath & return*)
-			set oldFullPath to fullPath
 			
-			set strText to strText & "- "
-			
-			if varDate is not missing value then set strText to strText & short date string of varDate & " - "
-			
-			(*if varProject is not missing value then set strText to strText & " [" & fullPath & "] - "
-			*)
-			set strText to strText & strName
-			if varContext is not missing value then set strText to strText & " *@" & varContext & "*"
-			set strText to strText & " " & return
 		end repeat
+		
+		
+		
+		
 	end tell
 	set ExportList to ExportList & strText & return & "Generated: " & (current date) as Unicode text
 	
 	--CHOOSE FILE NAME FOR EXPORT AND SAVE AS MARKDOWN
 	set taskTrackingFolder to path to home folder
 	
-	set fn to choose file name with prompt "Name this file" default name my dateISOformat(week_ago_start) & Â
+	set fn to choose file name with prompt "Name this file" default name my dateISOformat(week_ago_start,"-") & Â
 		".md" default location taskTrackingFolder
 	tell application "System Events"
 		set fid to open for access fn with write permission
@@ -101,12 +107,34 @@ on IndentAndProjects(oFolder)
 			
 			set my text item delimiters to dlm
 			
-			return "## " & fullPath & " ##" & return & return & strActive
+			return "### " & fullPath & return & strActive
 		else
 			return ""
 		end if
 	end tell
 end IndentAndProjects
+
+on CompletedTasks(lstName, lstContext, lstProject, lstDate)
+	
+	set showTaskDate to true
+	set showTaskContext to false
+	
+	set strText to ""
+	repeat with iTask from 1 to length of lstName
+		set {strName, varContext, varProject, varDate} to {item iTask of lstName, item iTask of lstContext, item iTask of lstProject, item iTask of lstDate}
+		
+		set strText to strText & "- "
+		
+		if varDate is not missing value and showTaskDate then set strText to strText & short date string of varDate & " - "
+		
+		set strText to strText & strName
+		
+		if varContext is not missing value and showTaskContext then set strText to strText & " *@" & varContext & "*"
+		set strText to strText & return
+	end repeat
+	return strText
+	
+end CompletedTasks
 
 -- Source: http://macscripter.net/viewtopic.php?id=39553
 on DateOfThisInstanceOfThisWeekdayBeforeOrAfterThisDate(d, w, i) -- returns a date
@@ -125,9 +153,9 @@ on DateOfThisInstanceOfThisWeekdayBeforeOrAfterThisDate(d, w, i) -- returns a da
 end DateOfThisInstanceOfThisWeekdayBeforeOrAfterThisDate
 
 -- Source: http://henrysmac.org/blog/2014/1/4/formatting-short-dates-in-applescript.html
-on dateISOformat(theDate)
+on dateISOformat(theDate, delm)
 	set y to text -4 thru -1 of ("0000" & (year of theDate))
 	set m to text -2 thru -1 of ("00" & ((month of theDate) as integer))
 	set d to text -2 thru -1 of ("00" & (day of theDate))
-	return y & "-" & m & "-" & d
+	return y & delm & m & delm & d
 end dateISOformat
