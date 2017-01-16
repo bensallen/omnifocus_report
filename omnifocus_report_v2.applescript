@@ -3,7 +3,7 @@ global showTaskContext
 global showProjectStatus
 global flattenTasks
 
-set showTaskDate to true
+set showTaskDate to false
 set showTaskContext to false
 set showProjectStatus to true
 set flattenTasks to true
@@ -23,7 +23,7 @@ tell application "OmniFocus"
 		
 		--GENERATE LIST OF ACTIVE PROJECTS
 		set strProjActive to ""
-		repeat with proj in (projects where its status is active and it is not singleton action holder and its defer date is missing value or defer date < dteNow)
+		repeat with proj in (projects where its status is active and it is not singleton action holder and (its defer date is missing value or defer date < dteNow))
 			set breadcrumb to "### " & name of proj
 			set strProjActive to (breadcrumb & return & strProjActive) & return
 		end repeat
@@ -39,7 +39,7 @@ tell application "OmniFocus"
 		
 		--PROCESS THE PROJECTS			
 		set strText to ""
-		set start to (my DateOfThisInstanceOfThisWeekdayBeforeOrAfterThisDate(current date, Monday, -1)) - 7 * days
+		set start to (my DateOfThisInstanceOfThisWeekdayBeforeOrAfterThisDate(current date, Monday, 0)) - 7 * days
 		set ExportList to ExportList & "Completed Tasks From Last Week - " & my dateISOformat(start, ".") & return & "---" & return & return & ""
 		
 		repeat with oFolder in (folders where hidden is false)
@@ -91,7 +91,7 @@ on RecurseActiveProjects(iFolder, breadcrumb, dteNow)
 		tell default document
 			set strText to ""
 			set strActive to ""
-			repeat with proj in (projects of iFolder where its status is active and it is not singleton action holder and its defer date is missing value or defer date < dteNow)
+			repeat with proj in (projects of iFolder where its status is active and it is not singleton action holder and (its defer date is missing value or defer date < dteNow))
 				set strActive to (strActive & "- " & name of proj as string) & return
 			end repeat
 			if strActive is not "" then
